@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="zh-CN" ng-app="opd2cCdn" ng-controller="indexController" xmlns:ng="http://angularjs.org" id="ng-app">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no">
+		<meta name="format-detection" content="telephone=no" />
+		<meta name="format-detection" content="email=no" />
+		<meta name="format-detection" content="address=no" />
+		<meta name="format-detection" content="date=no" />
+    <meta name="fragment" content="!" />
+    <title>opd2cCDN</title>
+    <link rel="shortcut icon" href="http://www.opd2c.com/favicon.ico" type="image/x-icon" />
+    <link href="/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+    	.header, .content { margin: 0 auto; max-width: 1000px;}
+    	.header h1 { margin: 50px 0 30px; font-weight: bold; text-align: center;}
+    	.glyphicon-remove { z-index: 3; pointer-events: auto; cursor: pointer;}
+    	.header .tags button { margin: 0 5px 5px 0;}
+    	.header .input-group { margin-bottom: 15px;}
+    	.header .input-group .form-control:not(:last-child) { -webkit-border-radius: 0 6px 6px 0; border-radius: 0 6px 6px 0;}
+    	.dropdown-menu { display: block;}
+    	.result-box h2 { text-align: center;}
+    	.result-box dt { font-size: 18px;}
+    	.result-box dd { overflow: hidden; margin-bottom: 5px; border-bottom: #ccc solid 1px; padding: 10px 0;}
+    	.result-box dd em { float: left; font-style: normal; word-wrap: break-word; word-break: break-all;}
+    	.result-box dd button { float: right; margin-left: 10px;}
+    	.toast { display: none; position: absolute; top: 50%; left: 50%; padding: 15px 20px; background-color: rgba(0, 0, 0, .7); color: #fff; -webkit-transform: translate(-50%, -50%); transform: translate(-50%, -50%); -webkit-border-radius: 8px; border-radius: 8px;}
+    	.ng-cloak { display:none;}
+    	@media (max-width: 768px) {
+    		.header .tags button { margin: 0 10px 10px 0; font-size: 14px;}
+    		.result-box dd { display: -webkit-box; display: flex; -webkit-box-pack: justify; justify-content: space-between; -webkit-box-align: start; align-items: flex-start;}
+    		.result-box dd em { float: none;}
+    		.result-box dd button { float: none; font-size: 14px;}
+    	}
+    </style>
+  </head>
+  <body>
+  	<div class="container-fluid">
+  		<div class="header">
+  			<h1>opd2cCDN</h1>
+  			
+  			<!-- 搜索框开始 -->
+  			<div class="input-group input-group-lg">
+		      <div class="input-group-btn">
+		        <button type="button" class="btn btn-default dropdown-toggle ng-cloak" disabled="disabled" ng-click="dropdownToggle($event)" ng-cloak>{{showProtocol}} <span class="caret"></span></button>
+		        <ul class="dropdown-menu" ng-show="showMenu">
+		          <li class="ng-cloak" ng-repeat="item in protocol" ng-click="selectedMenu($index)" ng-cloak><a href="#">{{item}}</a></li>
+		        </ul>
+		      </div>
+		      <div class="form-group form-group-lg has-feedback" id="has-feedback">
+			      <input class="form-control" type="text" placeholder="搜索开源库，例如：jquery" ng-model="search" ng-focus="iNow = -1">
+		  			<span class="glyphicon glyphicon-remove form-control-feedback" ng-show="search.length > 0 && !ie" ng-click="clearStr()"></span>
+	  			</div>
+		    </div>
+		    <!-- 搜索框结束 -->
+  			
+  			<!-- 标签组开始 -->
+  			<div class="tags">
+  				<button type="button" class="btn btn-info btn-xs" ng-repeat="lib in libs" ng-click="showLib($index)">{{lib.name}}</button>
+  			</div>
+  			<!-- 标签组结束 -->
+  			
+  		</div>
+  		<div class="content">
+  			
+  			<!-- 搜索返回结果开始 -->
+  			<div class="result-box">
+  				<div id="lib-list" ng-repeat="lib in libs" ng-show="lib.name.substring(0, search.length).toLowerCase().indexOf(search) != -1 && search.length > 0 || $index == iNow ? 'true' : 'false'">
+  					<h2 class="ng-cloak" ng-cloak>{{lib.name}}</h2>
+		  			<dl ng-repeat="version in lib.list">
+		  				<dt class="ng-cloak" ng-cloak>版本：{{version.version}}</dt>
+		  				<dd ng-repeat="script in version.scripts">
+		  					<em class="{{lib.tag + ($parent.$index + 1) + '-' + ($index + 1)}}">{{showProtocol+host+'/'+lib.name+'/'+version.version+'/'+script}}</em>
+		  					<button type="button" class="btn btn-default btn-xs btn-copy" data-clipboard-target=".{{lib.tag + ($parent.$index + 1) + '-' + ($index + 1)}}" ng-hide="ie8">复制</button>
+		  				</dd>
+		  			</dl>
+  				</div>
+	  		</div>
+	  		<!-- 搜索返回结果结束 -->
+	  		
+  		</div>
+  	</div>
+  	
+  	<!-- 提示框开始 -->
+  	<div class="toast" id="toast"></div>
+  	<!-- 提示框结束 -->
+  	
+    <script src="/angular.js/1.2.32/angular.min.js"></script>
+    <script src="/clipboard.js/1.6.1/clipboard.min.js"></script>
+    <script>
+    	angular.module('opd2cCdn', []).controller('indexController', ['$scope', '$location', '$timeout', '$document', function($scope, $location, $timeout, $document){
+    		
+    		// 开源库数据
+    		$scope.libs = [{
+    			"name": "angular.js",
+    			"tag": "angular",
+    			"list": [{
+    				"version": "1.2.32",
+    				"scripts": ["angular.min.js", "angular-animate.min.js", "angular-cookies.min.js"]
+    			}]
+    		},
+    		{
+    			"name": "angular-ui-router",
+    			"tag": "uiRouter",
+    			"list": [{
+    				"version": "1.0.3",
+    				"scripts": ["angular-ui-router.min.js"]
+    			}]
+    		},
+    		{
+    			"name": "axios",
+    			"tag": "axios",
+    			"list": [{
+    				"version": "0.16.1",
+    				"scripts": ["axios.min.js"]
+    			}]
+    		},
+    		{
+    			"name": "bootstrap",
+    			"tag": "bootstrap",
+    			"list": [{
+    				"version": "2.3.2",
+    				"scripts": ["css/bootstrap.min.css", "css/bootstrap-responsive.min.css", "js/bootstrap.min.js"]
+    			},
+    			{
+    				"version": "3.3.7",
+    				"scripts": ["css/bootstrap.min.css", "css/bootstrap-theme.min.css", "js/bootstrap.min.js"]
+    			}]
+    		},
+    		{
+    			"name": "clipboard.js",
+    			"tag": "clipboard",
+    			"list": [{
+    				"version": "1.6.1",
+    				"scripts": ["clipboard.min.js"]
+    			}]
+    		},
+    		{
+    			"name": "fastclick",
+    			"tag": "fastclick",
+    			"list": [{
+    				"version": "1.0.6",
+    				"scripts": ["fastclick.min.js"]
+    			}]
+    		},
+    		{
+    			"name": "font-awesome",
+    			"tag": "fontAwesome",
+    			"list": [{
+    				"version": "3.2.1",
+    				"scripts": ["css/font-awesome.min.css", "font/fontfontawesome-webfont.svg"]
+    			},
+    			{
+    				"version": "4.7.0",
+    				"scripts": ["css/font-awesome.min.css", "font/fontawesome-webfont.svg"]
+    			}]
+    		},
+    		{
+    			"name": "jquery",
+    			"tag": "jquery",
+    			"list": [{
+    				"version": "1.12.4",
+    				"scripts": ["jquery.min.js"]
+    			},
+    			{
+    				"version": "2.2.4",
+    				"scripts": ["jquery.min.js"]
+    			}]
+    		},
+    		{
+    			"name": "less.js",
+    			"tag": "less",
+    			"list": [{
+    				"version": "2.7.2",
+    				"scripts": ["less.min.js"]
+    			}]
+    		},
+    		{
+    			"name": "parallax",
+    			"tag": "parallax",
+    			"list": [{
+    				"version": "2.1.3",
+    				"scripts": ["parallax.min.js"]
+    			}]
+    		},
+    		{
+    			"name": "sass.js",
+    			"tag": "sass",
+    			"list": [{
+    				"version": "0.10.4",
+    				"scripts": ["sass.min.js"]
+    			}]
+    		},
+    		{
+    			"name": "Swiper",
+    			"tag": "swiper",
+    			"list": [{
+    				"version": "2.7.6",
+    				"scripts": ["css/idangerous.swiper.min.css", "js/idangerous.swiper.min.js"]
+    			},
+    			{
+    				"version": "3.4.2",
+    				"scripts": ["css/swiper.min.css", "js/swiper.min.js"]
+    			}]
+    		},
+    		{
+    			"name": "vue",
+    			"tag": "vue",
+    			"list": [{
+    				"version": "2.3.3",
+    				"scripts": ["vue.min.js"]
+    			}]
+    		},
+    		{
+    			"name": "vue-router",
+    			"tag": "vueRouter",
+    			"list": [{
+    				"version": "2.5.3",
+    				"scripts": ["vue-router.min.js"]
+    			}]
+    		},
+    		{
+    			"name": "vuex",
+    			"tag": "vuex",
+    			"list": [{
+    				"version": "2.3.1",
+    				"scripts": ["vuex.min.js"]
+    			}]
+    		}];
+    		
+    		var storage = window.localStorage;
+    		
+    		// 网络协议列表
+    		$scope.protocol = ['http://', 'https://', '//'];
+    		$scope.showMenu = false;
+    		$scope.showProtocol = storage.getItem("saveProtocol") || "http://";
+    		$scope.dropdownToggle = function(event){
+    			$scope.showMenu = !$scope.showMenu;
+    			event.stopPropagation();
+    		};
+    		$scope.selectedMenu = function(index){
+    			$scope.showProtocol = $scope.protocol[index];
+    			$scope.showMenu = false;
+    			storage.setItem("saveProtocol", $scope.showProtocol);
+    		};
+    		$document.bind("click", function(event) {
+    			$scope.$apply(function (){
+    				$scope.showMenu = false;
+    			})
+    		});
+    		
+    		// 获取地址栏域名
+    		$scope.host = $location.host();
+    		
+    		// 当前库
+    		$scope.iNow = -1;
+    		
+    		// 显示选中库
+    		$scope.showLib = function(index){
+    			$scope.iNow = index;
+    			$scope.search = null;
+    		};
+    		
+    		// 判断浏览器类型
+    		if(window.navigator.userAgent.indexOf("MSIE") != -1){
+    			var hasFeedback = document.getElementById('has-feedback');
+    			hasFeedback.className = 'form-group form-group-lg';
+    			$scope.ie = true;
+    		};
+    		if(window.navigator.userAgent.indexOf("MSIE 8") != -1){
+    			$scope.ie8 = true;
+    		};
+    		
+    		// 清空输入框
+    		$scope.clearStr = function(){
+    			$scope.search = null;
+    		};
+    		
+    		// 复制到剪切板
+    		if($scope.ie8) return;
+    		var clipboard = new Clipboard('.btn-copy');
+				clipboard.on('success', function(e){
+					var toast = document.getElementById('toast');
+			    toast.style.display = 'block';
+    			toast.innerHTML = '已复制';
+    			$timeout(function(){
+    				toast.style.display = 'none';
+    				toast.innerHTML = '';
+    			}, 2000);
+			    e.clearSelection();
+				});
+    	}]);
+    </script>
+  </body>
+</html>
